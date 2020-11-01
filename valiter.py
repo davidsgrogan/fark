@@ -3,7 +3,7 @@
 import numpy as np
 import scoring
 
-goal_score = 10000
+goal_score = 5000
 resolution_store_every = 50
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
