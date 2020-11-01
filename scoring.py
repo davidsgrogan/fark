@@ -161,9 +161,9 @@ if __name__ == "__main__":
     
   #%%
   with open('num_dice_to_distribution.pkl', 'wb') as f:
-    pickle.dump(num_dice_to_distribution, f, pickle.HIGHEST_PROTOCOL)
+    pickle.dump(num_dice_to_distribution, f, 4)
   with open('roll_to_options.pkl', 'wb') as f:
-    pickle.dump(roll_to_options, f, pickle.HIGHEST_PROTOCOL)
+    pickle.dump(roll_to_options, f, 4)
 
 distro = []
 with open('num_dice_to_distribution.pkl', 'rb') as f:

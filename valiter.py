@@ -3,7 +3,7 @@
 import numpy as np
 import scoring
 
-goal_score = 5000
+goal_score = 600
 resolution_store_every = 50
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
@@ -14,7 +14,8 @@ def r2i(raw):
   return index
 
 def GetProb(scores, dice_remaining, turn_points):
-  if scores[0] + turn_points > goal_score:
+  print (scores)
+  if scores[0] + turn_points >= goal_score:
     return 1
   return W[r2i(scores[0]), r2i(scores[1]), r2i(turn_points), dice_remaining]
 
