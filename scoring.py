@@ -4,6 +4,7 @@
 import collections
 import copy
 import itertools
+import pickle
 
 def remove_junk_die(orig_counts):
   counts = copy.deepcopy(orig_counts)
@@ -41,9 +42,9 @@ def count_em(dice_list):
 
 # inspired by https://codereview.stackexchange.com/questions/116051/scoring-solution-for-farkle-dice-game/116055
 # returns a list of tuples where the tuple is (dice used, score)
-def get_score_options(roll_result):
+def _get_score_options(roll_result):
   counts = collections.Counter(roll_result)
-#  print(len(counts), "     ", counts)
+  # print(len(counts), "     ", counts)
   dice_rolled = len(roll_result)
   # The dice values are 1 based, not 0 based.
   # Do the special 6-dice combos first
@@ -73,7 +74,7 @@ def get_score_options(roll_result):
     assert(counts[5] == 1)
     return {1: 50}
   # We didn't womp and have rolled 2 to 6 dice
-  
+
   # This is embarrassingly stupid, but 2^6 is only 64.
   elements = sorted(counts.elements())
   # num dice kept -> score
@@ -81,16 +82,28 @@ def get_score_options(roll_result):
   for num_to_keep in range(1, len(elements) + 1):
     best[num_to_keep] = 0
     for dice_to_score in itertools.combinations(elements, num_to_keep):
-#      print("scoring ", dice_to_score)
+      # print("scoring ", dice_to_score)
       score = count_em(dice_to_score)
       best[num_to_keep] = max(best[num_to_keep], score)
     if best[num_to_keep] == 0:
       del best[num_to_keep]
-  #print(best)
+  # print(best)
   if dice_rolled in best:
     return {dice_rolled: best[dice_rolled]}
   return best
-
+#%%
+def index_to_roll(idx, num_dice):
+  assert idx < 6**num_dice, f"{idx, 6**num_dice}"
+  roll = []
+  mod = idx
+  for i in reversed(range(0, num_dice)):
+    (div, mod) = divmod(mod, 6**i)
+#    print("div, mod is ", div, mod)
+    roll.append(1+div)
+  assert mod == 0, mod
+  return roll
+#%%
+    
 if __name__ == "__main__":
   tests = {
     range(1,7) : {6: 1500},
@@ -119,8 +132,48 @@ if __name__ == "__main__":
     (6,): {},
     (3, 3, 3): {3: 300},
     (3, 3, 3, 4): {3: 300},
-    (1, 1, 2, 2, 2, 4): {1: 100, 2: 200, 3: 200, 4: 300, 5: 400}
+    (1, 1, 2, 2, 2, 4): {1: 100, 2: 200, 3: 200, 4: 300, 5: 400},
+    (1, 5): {2: 150}
     }
   for dice, expected in tests.items():
-    assert get_score_options(dice) == expected, (f'{dice} got\n{get_score_options(dice)} ' +
+    assert _get_score_options(dice) == expected, (f'{dice} got\n{_get_score_options(dice)} ' +
                                                  f'was expecting \n{expected}')
+  roll_to_options = {}
+  num_dice_to_distribution = []
+  for num_dice in range(1, 7):
+    print(f"recording rolls for {num_dice} dice")
+    options_to_counts = collections.defaultdict(int)
+    num_rolls_for_this_number_of_dice = 6**num_dice
+    for roll_index in range(num_rolls_for_this_number_of_dice):
+      roll = index_to_roll(roll_index, num_dice)
+      score_options_dict = _get_score_options(roll)
+      roll_to_options[tuple(roll)] = score_options_dict
+      options_as_tuple = tuple(score_options_dict.items())
+      # print(roll)
+      # print(score_options_dict)
+      # print(options_as_tuple)
+      # print("\n")
+      options_to_counts[options_as_tuple] += 1
+#    print(dict(options_to_counts))
+    options_to_counts.update((k, v / num_rolls_for_this_number_of_dice) for k, v in options_to_counts.items())
+    #print(sum(counts for tup, counts in options_to_counts.items()))
+    num_dice_to_distribution.append(options_to_counts)
+    
+  #%%
+  with open('num_dice_to_distribution.pkl', 'wb') as f:
+    pickle.dump(num_dice_to_distribution, f, pickle.HIGHEST_PROTOCOL)
+  with open('roll_to_options.pkl', 'wb') as f:
+    pickle.dump(roll_to_options, f, pickle.HIGHEST_PROTOCOL)
+
+distro = []
+with open('num_dice_to_distribution.pkl', 'rb') as f:
+  distro = pickle.load(f)
+roll_to_options = {}
+with open('roll_to_options.pkl', 'rb') as f:
+  roll_to_options = pickle.load(f)
+
+def distribution_over_scoring_options(num_dice):
+  return distro[num_dice - 1]
+
+def get_score_options(roll):
+  return roll_to_options[tuple(roll)]

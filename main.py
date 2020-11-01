@@ -21,12 +21,12 @@ players = [agents.TurnLimitPlayer(400),
            agents.HeuristicPlayer()]
 num_players = len(players)
 winners = [0] * num_players
-NUM_GAMES = 5000
+NUM_GAMES = 1000
 
 turn_scores_banked = []
 
 for x in range(NUM_GAMES):
-  if x < 2500:
+  if x < NUM_GAMES / 2:
     turn = -1
   else:
     turn = 0
