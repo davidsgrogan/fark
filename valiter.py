@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-print ("horses")
-
 import numpy as np
 import scoring
 
@@ -20,10 +18,17 @@ def GetProb(scores, dice_remaining, turn_points):
     return 1
   return W[r2i(scores[0]), r2i(scores[1]), r2i(turn_points), dice_remaining]
 
-print ("dogs")
+# Speedups, in order:
+# Lower limit to 5000
+# Profile, looks for blatant idiocy
+# Multiprocess, but need to run a complete 5000 run with recorded results first
+# to make sure the parallel algorithm matches
+# Can limit turn_points to 10000 - my_score
+# Can do scores just 6000 apart, clamping the other parts
+# Can do resolution of 100 for lower score states
+
 
 if __name__ == "__main__":
-  print ("cats")
   W = np.zeros((num_score_entries, num_score_entries, num_score_entries, 7))
   for my_score in reversed(range(0, goal_score, resolution_store_every)):
     for your_score in reversed(range(0, goal_score, resolution_store_every)):
