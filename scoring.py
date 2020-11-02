@@ -136,8 +136,9 @@ if __name__ == "__main__":
     (1, 5): {2: 150}
     }
   for dice, expected in tests.items():
-    assert _get_score_options(dice) == expected, (f'{dice} got\n{_get_score_options(dice)} ' +
-                                                 f'was expecting \n{expected}')
+    assert _get_score_options(dice) == expected, (
+      f'{dice} got\n{_get_score_options(dice)} ' +
+      f'was expecting \n{expected}')
   roll_to_options = {}
   num_dice_to_distribution = []
   for num_dice in range(1, 7):
