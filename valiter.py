@@ -5,7 +5,7 @@ import scoring
 import copy
 import pickle
 
-goal_score = 3000
+goal_score = 600
 resolution_store_every = 50
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
@@ -30,7 +30,11 @@ def SetProb(scores, turn_points, dice_remaining, this_W):
 
 # Speedups, in order:
 # Record results to compare against optimizations
+# Do L-shaped convergence so that we don't have to run over the
+# already-converged pieces
 # Multiprocess
+  # Can sync up the matrix from one level higher after each of its iterations
+  # so you don't have to do locking
 # Can do scores just 6000 apart, clamping the other parts
 # Can do resolution of 100 for lower score states
 
