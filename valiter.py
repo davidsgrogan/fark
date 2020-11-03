@@ -29,7 +29,7 @@ def GetProb(scores, turn_points, dice_remaining, local_W):
 
 def SetProb(scores, turn_points, dice_remaining, this_W, local_W):
   assert dice_remaining > 0 and dice_remaining < 7
-  print("SetProb got", scores, turn_points, dice_remaining, this_W)
+  # print("SetProb got", scores, turn_points, dice_remaining, this_W)
   local_W[r2i(scores[0]), r2i(scores[1]), r2i(turn_points), dice_remaining - 1] = this_W
 
 
@@ -49,22 +49,22 @@ def DoOne(shm_name, my_score, your_score, turn_points, num_dice):
 
   existing_shm = shared_memory.SharedMemory(name=shm_name)
   local_W = np.ndarray(W.shape, dtype=W.dtype, buffer=existing_shm.buf)
-  print("Top of DoOne for", my_score, your_score, turn_points, num_dice)
+  # print("Top of DoOne for", my_score, your_score, turn_points, num_dice)
   interest = False
   if my_score == 0 and your_score == 50 and turn_points == 0 and num_dice == 1:
-    print("Starting the interesting one")
+    # print("Starting the interesting one")
     interest = True
-    # interest = False
+    interest = False
   this_W_if_roll = 0
   for options, probability in (
       scoring.distribution_over_scoring_options(num_dice).items()):
     if options == ():
       # Womped
       if interest:
-        val = 1 - GetProb((your_score, my_score), 0, 6)
+        val = 1 - GetProb((your_score, my_score), 0, 6, local_W)
         print(f"womp prob = {probability}, value = {val}")
       this_W_if_roll += probability * (
-        1 - GetProb((your_score, my_score, local_W), 0, 6))
+        1 - GetProb((your_score, my_score, local_W), 0, 6, local_W))
       continue
     best_prob = 0
     for option in options:
@@ -98,12 +98,12 @@ def main():
   diff_threshold = 0.0002
   shm = shared_memory.SharedMemory(create=True, size=W.nbytes)
   W = np.ndarray(W_shape, dtype=W.dtype, buffer=shm.buf)
-  pool = Pool(1)
+  pool = Pool(6)
   print("starting %d processes" % pool._processes)
   while diff > diff_threshold:
     if k == 2:
       pass
-      break
+      # break
     k += 1
     print("Starting iteration", k)
     W_old = copy.deepcopy(W)
@@ -124,15 +124,15 @@ def main():
   with open(f'W_goal{goal_score}_res{resolution_store_every}_parallel.pkl', 'wb') as f:
     pickle.dump(W, f, 4)
 #%%
-  p_to_test = GetProb((100, 0), 100, 1)
+  p_to_test = GetProb((100, 0), 100, 1, W)
   # hold
-  hold = 1 - GetProb((0, 200), 0, 6)
+  hold = 1 - GetProb((0, 200), 0, 6, W)
   # Roll 1
-  roll_1 = GetProb((100, 0), 200, 6)
+  roll_1 = GetProb((100, 0), 200, 6, W)
   # Roll 5
-  roll_5 = GetProb((100, 0), 150, 6)
+  roll_5 = GetProb((100, 0), 150, 6, W)
   # Womp
-  womp = 1 - GetProb((0, 100), 0, 6)
+  womp = 1 - GetProb((0, 100), 0, 6, W)
   print(p_to_test, "p_to_test from matrix")
   manual = (2/3) * womp + (1/6) * roll_1 + (1/6) * roll_5
   print(manual, "manual")
