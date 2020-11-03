@@ -5,7 +5,7 @@ import scoring
 import copy
 import pickle
 
-goal_score = 600
+goal_score = 1000
 resolution_store_every = 50
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
@@ -46,7 +46,7 @@ def main():
   diff = 1
   k = 0
   diff_threshold = 0.0002
-  l_width = 200
+  l_width = 250
   
   for start_score in reversed(range(0, goal_score, l_width)):
     end_score = start_score + l_width
@@ -132,9 +132,9 @@ def main():
   assert abs(p_to_test - manual) < diff_threshold
   with open(f'W_goal{goal_score}_res{resolution_store_every}.pkl', 'rb') as f:
     W2 = pickle.load(f)
-  biggest_diff = np.max(np.abs((W-W2)))
-  print("biggest difference between L and regular:", biggest_diff)
-  assert biggest_diff < 2 * diff_threshold
+    biggest_diff = np.max(np.abs((W-W2)))
+    print("biggest difference between L and regular:", biggest_diff)
+    assert biggest_diff < 2 * diff_threshold
 #%%    
 if __name__ == "__main__":
   main()
