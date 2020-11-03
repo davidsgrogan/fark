@@ -9,6 +9,9 @@ from multiprocessing import shared_memory
 
 goal_score = 600
 resolution_store_every = 50
+diff_threshold = 0.0002
+parallel = False
+
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
 W_shape = (num_score_entries, num_score_entries, num_score_entries, 6)
@@ -43,12 +46,14 @@ def SetProb(scores, turn_points, dice_remaining, this_W, local_W):
 # Can do scores just 6000 apart, clamping the other parts
 # Can do resolution of 100 for lower score states
 
-def DoOne(shm_name, my_score, your_score, turn_points, num_dice):
+def DoOne(my_score, your_score, turn_points, num_dice, shm_name):
   # iterate over the distribution of scoring options for this number of
   # dice. there will be a sequence of options mapped to a probability
 
-  existing_shm = shared_memory.SharedMemory(name=shm_name)
-  local_W = np.ndarray(W.shape, dtype=W.dtype, buffer=existing_shm.buf)
+  local_W = W  
+  if parallel:
+    existing_shm = shared_memory.SharedMemory(name=shm_name)
+    local_W = np.ndarray(W.shape, dtype=W.dtype, buffer=existing_shm.buf)
   # print("Top of DoOne for", my_score, your_score, turn_points, num_dice)
   interest = False
   if my_score == 0 and your_score == 50 and turn_points == 0 and num_dice == 1:
@@ -87,19 +92,17 @@ def DoOne(shm_name, my_score, your_score, turn_points, num_dice):
 #                print("Want to hold at", my_score, your_score, turn_points, num_dice)
   return this_W
 
-W = np.zeros(W_shape)
-
-diff = 0
 def main():
   global diff
   global W
+  W = np.zeros(W_shape)
   diff = 1
   k = 0
-  diff_threshold = 0.0002
   shm = shared_memory.SharedMemory(create=True, size=W.nbytes)
   W = np.ndarray(W_shape, dtype=W.dtype, buffer=shm.buf)
-  pool = Pool(6)
-  print("starting %d processes" % pool._processes)
+  if parallel:
+    pool = Pool(6)
+    print("starting %d processes" % pool._processes)
   while diff > diff_threshold:
     if k == 2:
       pass
@@ -111,11 +114,15 @@ def main():
       for your_score in reversed(range(0, goal_score, resolution_store_every)):
         #print(f"doing my_score = {my_score}, your_score = {your_score}")
         for turn_points in range(0, goal_score - my_score, resolution_store_every):
-          probs = pool.starmap(DoOne, zip(6*[shm.name], 6*[my_score], 6*[your_score], 6*[turn_points], range(1,7)))
-          assert len(probs) == 6
-          for num_dice, this_W in enumerate(probs):
-            num_dice += 1
-            SetProb((my_score, your_score), turn_points, num_dice, this_W, W)
+          if parallel:
+            probs = pool.starmap(DoOne, zip(6*[my_score], 6*[your_score], 6*[turn_points], range(1,7), 6*[shm.name]))
+            assert len(probs) == 6
+            for num_dice, this_W in enumerate(probs):
+              SetProb((my_score, your_score), turn_points, num_dice + 1, this_W, W)
+          else:
+            for num_dice in range(1, 7):
+              this_W = DoOne(my_score, your_score, turn_points, num_dice, "unused")
+              SetProb((my_score, your_score), turn_points, num_dice, this_W, W)
     diff = np.max(np.abs(W - W_old))
     biggest_cell = np.max(W)
     print(f"After, biggest cell difference is {diff}. Biggest " +
