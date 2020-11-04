@@ -7,10 +7,10 @@ import pickle
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
-goal_score = 1000
+goal_score = 1200
 resolution_store_every = 50
 diff_threshold = 0.0002
-parallel = True
+parallel = False
 
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
@@ -38,8 +38,10 @@ def SetProb(scores, turn_points, dice_remaining, this_W, local_W):
 
 # Speedups, in order:
 # Multiprocess
-  # Can sync up the matrix from one level higher after each of its iterations
-  # so you don't have to do locking
+  # Either smarter chunks with fewer function calls
+    # Write out a matrix of matrices and see how to divide it up
+    # Retrieve the W cells you need for a roll all in one swoop, not in a loop
+  # Or locks
 # Can do scores just 6000 apart, clamping the other parts
 # Can do resolution of 100 for lower score states
 
@@ -104,7 +106,7 @@ def main():
   shm = shared_memory.SharedMemory(create=True, size=W.nbytes)
   W = np.ndarray(W_shape, dtype=W.dtype, buffer=shm.buf)
   if parallel:
-    pool = Pool(20)
+    pool = Pool(25)
     print("starting %d processes" % pool._processes)
   while diff > diff_threshold:
     if k == 2:
