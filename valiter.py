@@ -7,10 +7,10 @@ import pickle
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
-goal_score = 600
+goal_score = 1000
 resolution_store_every = 50
 diff_threshold = 0.0002
-parallel = False
+parallel = True
 
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
@@ -124,6 +124,8 @@ def main():
                                             processes*[your_score],
                                             turn_points_range,
                                             processes*[shm.name]))
+          assert len(lists_of_probs) == processes
+          # print ("Just got back a list length %d where each is a turn_point" % processes)
           for index, turn_points in enumerate(turn_points_range):
             W[r2i(my_score), r2i(your_score), r2i(turn_points), :] = lists_of_probs[index]
         else:
