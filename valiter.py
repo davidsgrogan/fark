@@ -37,23 +37,27 @@ def SetProb(scores, turn_points, dice_remaining, this_W, local_W):
 
 
 # Speedups, in order:
-# Record results to compare against optimizations
-# Do L-shaped convergence so that we don't have to run over the
-# already-converged pieces
 # Multiprocess
   # Can sync up the matrix from one level higher after each of its iterations
   # so you don't have to do locking
 # Can do scores just 6000 apart, clamping the other parts
 # Can do resolution of 100 for lower score states
 
-def DoOne(my_score, your_score, turn_points, num_dice, shm_name):
+def DoTurnPointsRange(my_score, your_score, turn_points, shm_name):
+  local_W = W
+  existing_shm = shared_memory.SharedMemory(name=shm_name)
+  local_W = np.ndarray(W.shape, dtype=W.dtype, buffer=existing_shm.buf)
+  results = []
+  for num_dice in range(1, 7):
+    this_W = DoOneDie(my_score, your_score, turn_points, num_dice, local_W)
+    results.append(this_W)
+  return results
+  # return np.array(results).reshape((-1, 6))
+
+def DoOneDie(my_score, your_score, turn_points, num_dice, local_W):
   # iterate over the distribution of scoring options for this number of
   # dice. there will be a sequence of options mapped to a probability
 
-  local_W = W  
-  if parallel:
-    existing_shm = shared_memory.SharedMemory(name=shm_name)
-    local_W = np.ndarray(W.shape, dtype=W.dtype, buffer=existing_shm.buf)
   # print("Top of DoOne for", my_score, your_score, turn_points, num_dice)
   interest = False
   if my_score == 0 and your_score == 50 and turn_points == 0 and num_dice == 1:
@@ -79,7 +83,6 @@ def DoOne(my_score, your_score, turn_points, num_dice, shm_name):
       prob = GetProb((my_score, your_score), turn_points + option[1],
                      dice_to_roll, local_W)
       if interest:
-        pass
         print(f"for option {option}, value = {prob}, probability = {probability}")
       best_prob = max(prob, best_prob)
     this_W_if_roll += probability * best_prob
@@ -101,7 +104,7 @@ def main():
   shm = shared_memory.SharedMemory(create=True, size=W.nbytes)
   W = np.ndarray(W_shape, dtype=W.dtype, buffer=shm.buf)
   if parallel:
-    pool = Pool(6)
+    pool = Pool(20)
     print("starting %d processes" % pool._processes)
   while diff > diff_threshold:
     if k == 2:
@@ -113,15 +116,20 @@ def main():
     for my_score in reversed(range(0, goal_score, resolution_store_every)):
       for your_score in reversed(range(0, goal_score, resolution_store_every)):
         #print(f"doing my_score = {my_score}, your_score = {your_score}")
-        for turn_points in range(0, goal_score - my_score, resolution_store_every):
-          if parallel:
-            probs = pool.starmap(DoOne, zip(6*[my_score], 6*[your_score], 6*[turn_points], range(1,7), 6*[shm.name]))
-            assert len(probs) == 6
-            for num_dice, this_W in enumerate(probs):
-              SetProb((my_score, your_score), turn_points, num_dice + 1, this_W, W)
-          else:
+        if parallel:
+          turn_points_range = range(0, goal_score - my_score, resolution_store_every)
+          processes = len(turn_points_range)
+          lists_of_probs = pool.starmap(DoTurnPointsRange,
+                                        zip(processes*[my_score],
+                                            processes*[your_score],
+                                            turn_points_range,
+                                            processes*[shm.name]))
+          for index, turn_points in enumerate(turn_points_range):
+            W[r2i(my_score), r2i(your_score), r2i(turn_points), :] = lists_of_probs[index]
+        else:
+          for turn_points in range(0, goal_score - my_score, resolution_store_every):
             for num_dice in range(1, 7):
-              this_W = DoOne(my_score, your_score, turn_points, num_dice, "unused")
+              this_W = DoOneDie(my_score, your_score, turn_points, num_dice, W)
               SetProb((my_score, your_score), turn_points, num_dice, this_W, W)
     diff = np.max(np.abs(W - W_old))
     biggest_cell = np.max(W)
@@ -148,7 +156,7 @@ def main():
   with open(f'W_goal{goal_score}_res{resolution_store_every}.pkl', 'rb') as f:
     W2 = pickle.load(f)
     biggest_diff = np.max(np.abs((W-W2)))
-    print("biggest difference between L and regular:", biggest_diff)
+    print("biggest difference between what I just ran and regular:", biggest_diff)
     assert biggest_diff < 2 * diff_threshold
 #%%    
 if __name__ == "__main__":
