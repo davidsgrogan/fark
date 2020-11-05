@@ -7,7 +7,7 @@ import pickle
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
-goal_score = 600
+goal_score = 2000
 resolution_store_every = 50
 diff_threshold = 0.0002
 parallel = False
@@ -59,6 +59,9 @@ def DoTurnPointsRange(my_score, your_score, turn_points, shm_name):
   local_W = np.ndarray(W.shape, dtype=W.dtype, buffer=existing_shm.buf)
   results = []
   for num_dice in range(1, 7):
+    if CanSkip(turn_points, num_dice):
+      results.append(0)
+      continue
     this_W = DoOneDie(my_score, your_score, turn_points, num_dice, local_W)
     results.append(this_W)
   existing_shm.close()
@@ -112,7 +115,7 @@ def DoOneDie(my_score, your_score, turn_points, num_dice, local_W):
       # print("Want to hold at", my_score, your_score, turn_points, num_dice)
   return this_W
 
-def can_skip(turn_points, num_dice):
+def CanSkip(turn_points, num_dice):
   if num_dice == 1 and turn_points < 250:
     return True
   if num_dice == 2 and turn_points < 200:
@@ -159,7 +162,7 @@ def main():
         else:
           for turn_points in range(0, goal_score - my_score, resolution_store_every):
             for num_dice in range(1, 7):
-              if can_skip(turn_points, num_dice):
+              if CanSkip(turn_points, num_dice):
                 continue
               this_W = DoOneDie(my_score, your_score, turn_points, num_dice, W)
               SetProb((my_score, your_score), turn_points, num_dice, this_W, W)
