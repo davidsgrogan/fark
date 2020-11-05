@@ -7,7 +7,7 @@ import pickle
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
-goal_score = 3000
+goal_score = 600
 resolution_store_every = 50
 diff_threshold = 0.0002
 parallel = False
@@ -21,6 +21,14 @@ def r2i(raw):
 #  index, remainder = divmod(raw, resolution_store_every)
 #  assert remainder == 0, (raw, resolution_store_every)
   return index
+
+# each row is
+# my_score, your_score, turn_points, dice_remaining
+# 300, 500, 250, 4
+# 200, 150, 0, 2
+def GetIndices(nparr):
+  nparr[:, 0:3] = nparr[:, 0:3] / resolution_store_every
+  nparr[:, 3] = nparr[:, 3] - 1
 
 def GetProb(scores, turn_points, dice_remaining, local_W):
   assert dice_remaining > 0 and dice_remaining < 7
@@ -53,6 +61,7 @@ def DoTurnPointsRange(my_score, your_score, turn_points, shm_name):
   for num_dice in range(1, 7):
     this_W = DoOneDie(my_score, your_score, turn_points, num_dice, local_W)
     results.append(this_W)
+  existing_shm.close()
   return results
   # return np.array(results).reshape((-1, 6))
 
@@ -67,6 +76,11 @@ def DoOneDie(my_score, your_score, turn_points, num_dice, local_W):
     interest = True
     interest = False
   this_W_if_roll = 0
+  # each row is
+  # my_score, your_score, turn_points, dice_remaining
+  # 300, 500, 250, 4
+  # 200, 150, 0, 2
+  indices_to_request = []
   for options, probability in (
       scoring.distribution_over_scoring_options(num_dice).items()):
     if options == ():
@@ -93,9 +107,22 @@ def DoOneDie(my_score, your_score, turn_points, num_dice, local_W):
     # We have the option to hold
     hold_prob = 1 - GetProb((your_score, my_score + turn_points), 0, 6, local_W)
     this_W = max(hold_prob, this_W)
-#              if this_W == hold_prob and k > 20:
-#                print("Want to hold at", my_score, your_score, turn_points, num_dice)
+    if this_W == hold_prob:
+      pass
+      # print("Want to hold at", my_score, your_score, turn_points, num_dice)
   return this_W
+
+def can_skip(turn_points, num_dice):
+  if num_dice == 1 and turn_points < 250:
+    return True
+  if num_dice == 2 and turn_points < 200:
+    return True
+  if num_dice == 3 and turn_points < 150:
+    return True
+  if turn_points == 0 and num_dice != 6:
+    return True
+  if turn_points == 50 and num_dice != 5:
+    return True
 
 def main():
   global diff
@@ -113,7 +140,6 @@ def main():
       pass
       # break
     k += 1
-    print("Starting iteration", k)
     W_old = copy.deepcopy(W)
     for my_score in reversed(range(0, goal_score, resolution_store_every)):
       for your_score in reversed(range(0, goal_score, resolution_store_every)):
@@ -133,35 +159,52 @@ def main():
         else:
           for turn_points in range(0, goal_score - my_score, resolution_store_every):
             for num_dice in range(1, 7):
+              if can_skip(turn_points, num_dice):
+                continue
               this_W = DoOneDie(my_score, your_score, turn_points, num_dice, W)
               SetProb((my_score, your_score), turn_points, num_dice, this_W, W)
     diff = np.max(np.abs(W - W_old))
     biggest_cell = np.max(W)
-    print(f"After, biggest cell difference is {diff}. Biggest " +
+    print(f"After iteration {k}, biggest cell difference is {diff}. Biggest " +
           f"is {biggest_cell}")
 
   with open(f'W_goal{goal_score}_res{resolution_store_every}_parallel.pkl', 'wb') as f:
     pickle.dump(W, f, 4)
 #%%
-  p_to_test = GetProb((100, 0), 100, 1, W)
-  # hold
-  hold = 1 - GetProb((0, 200), 0, 6, W)
-  # Roll 1
-  roll_1 = GetProb((100, 0), 200, 6, W)
-  # Roll 5
-  roll_5 = GetProb((100, 0), 150, 6, W)
-  # Womp
+  p_to_test = GetProb((100, 0), 400, 1, W)
+  hold = 1 - GetProb((0, 500), 0, 6, W)
+  roll_1 = GetProb((100, 0), 500, 6, W)
+  roll_5 = GetProb((100, 0), 450, 6, W)
   womp = 1 - GetProb((0, 100), 0, 6, W)
   print(p_to_test, "p_to_test from matrix")
   manual = (2/3) * womp + (1/6) * roll_1 + (1/6) * roll_5
   print(manual, "manual")
   print(hold, "hold")
-  assert abs(p_to_test - manual) < diff_threshold
-  with open(f'W_goal{goal_score}_res{resolution_store_every}.pkl', 'rb') as f:
+  assert abs(p_to_test - max(hold, manual)) < diff_threshold
+  
+  p_to_test = GetProb((100, 0), 400, 2, W)
+  hold = 1 - GetProb((0, 500), 0, 6, W)
+  roll_11 = GetProb((100, 0), 600, 6, W)
+  roll_15 = GetProb((100, 0), 550, 6, W)
+  roll_55 = GetProb((100, 0), 500, 6, W)
+  roll_5 = GetProb((100, 0), 450, 1, W)
+  roll_1 = GetProb((100, 0), 500, 1, W)
+  womp = 1 - GetProb((0, 100), 0, 6, W)
+  manual = (8/36)*roll_1 + (8/36)*roll_5 + (1/36)*roll_55 + (1/36)*roll_11 + (2/36)*roll_15 + (16/36)*womp
+  print("")
+  print(p_to_test, "p_to_test from matrix")
+  print(manual, "manual")
+  print(hold, "hold\n")
+  assert abs(p_to_test - max(hold, manual)) < diff_threshold  
+  
+  golden_file_name = f'W_goal{goal_score}_res{resolution_store_every}.pkl'
+  with open(golden_file_name, 'rb') as f:
     W2 = pickle.load(f)
     biggest_diff = np.max(np.abs((W-W2)))
-    print("biggest difference between what I just ran and regular:", biggest_diff)
+    print(f"biggest difference between what I just ran and {golden_file_name}:", biggest_diff)
     assert biggest_diff < 2 * diff_threshold
+  shm.close()
+  shm.unlink()
 #%%    
 if __name__ == "__main__":
   main()
