@@ -7,10 +7,10 @@ import pickle
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
-goal_score = 2000
+goal_score = 1000
 resolution_store_every = 50
 diff_threshold = 0.0002
-parallel = False
+parallel = True
 
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
