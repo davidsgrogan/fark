@@ -8,10 +8,11 @@ import sys
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
-goal_score = 1000
+goal_score = 3000
 resolution_store_every = 50
 diff_threshold = 0.0002
 parallel = False
+parallel = True
 
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
@@ -131,8 +132,8 @@ def CanSkip(turn_points, num_dice):
   if num_dice == 4 and turn_points < 100:
     # Can also skip 250, 300, 350
     return True
-  if num_dice == 5 and turn_points == 0 or (turn_points < 350 and
-                                            turn_points > 100):
+  if num_dice == 5 and (turn_points == 0 or (turn_points < 350 and
+                                             turn_points > 100)):
     return True
   if num_dice == 6 and turn_points < 300 and turn_points > 0:
     return True
@@ -197,11 +198,28 @@ def RunValueIteration():
   shm.close()
   shm.unlink()
 
-def RunTests():
-  golden_file_name = f'W_goal{goal_score}_res{resolution_store_every}.pkl'
-  with open(golden_file_name, 'rb') as f:
-    W = pickle.load(f)
-  print("Running tests against", golden_file_name)
+def RunTests(test_only=False):
+  global W
+  if test_only:
+    golden_file_name = f'W_goal{goal_score}_res{resolution_store_every}.pkl'
+    with open(golden_file_name, 'rb') as f:
+      W = pickle.load(f)
+    print("Running tests against", golden_file_name, "\n")
+
+  p_to_test = GetProb((0, 0), 0, 6, W)
+  assert p_to_test > 0.5, f"Your prob when you go first is {p_to_test}"
+  print(f"Your prob when you go first is {p_to_test}")
+
+  p_to_test = GetProb((0, 50), 0, 6, W)
+  assert p_to_test > 0.5, f"Other guy has a 50 point lead when you start, prob is {p_to_test}"
+  assert p_to_test < GetProb((0, 0), 0, 6, W)
+  print(f"Other guy has a 50 point lead when you start, prob is {p_to_test}\n")
+
+  p_to_test = GetProb((0, 0), 50, 5, W)
+  hold = 1 - GetProb((0, 50), 0, 6, W)
+  print(p_to_test, "p_to_test from matrix")
+  print(hold, "hold\n")
+  assert p_to_test > hold
 
   p_to_test = GetProb((100, 0), 400, 1, W)
   hold = 1 - GetProb((0, 500), 0, 6, W)
@@ -240,16 +258,10 @@ def RunTests():
     print(hold, "hold\n")
     assert abs(p_to_test - max(hold, manual)) < diff_threshold
 
-  p_to_test = GetProb((0, 0), 50, 5, W)
-  hold = 1 - GetProb((0, 50), 0, 6, W)
-  print(p_to_test, "p_to_test from matrix")
-  print(hold, "hold\n")
-  assert p_to_test > hold
-
 if __name__ == "__main__":
   test_only = False
   if len(sys.argv) > 1 and sys.argv[1] == "test":
     print("running tests only")
-    RunTests()
+    RunTests(test_only=True)
   else:
     RunValueIteration()
