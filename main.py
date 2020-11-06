@@ -10,17 +10,17 @@ import numpy as np
 import scoring
 import agents
 
-seed = 123
+seed = 124
 random.seed(seed)
 np.random.seed(seed)
 
-goal_score = 2000
+goal_score = 1000
 
 players = [agents.TurnLimitPlayer(400),
            agents.TwoPlayerValueIterated(goal_score)]
 num_players = len(players)
 winners = [0] * num_players
-NUM_GAMES = 1000
+NUM_GAMES = 10
 
 turn_scores_banked = []
 

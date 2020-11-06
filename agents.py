@@ -132,4 +132,14 @@ if __name__ == "__main__":
       "scoring_options": {1: 50},
   }
   action = value_player.GetAction(state)
-  print(action)
+  assert action == -1, action
+
+  value_player = TwoPlayerValueIterated(2000)
+  state = {
+      "scores": [0, 0],
+      "turn_points": 50,
+      "just_rolled": [2, 2, 3, 3, 4, 5],
+      "scoring_options": {1: 50},
+  }
+  action = value_player.GetAction(state)
+  assert action == 1, action

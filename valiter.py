@@ -4,10 +4,11 @@ import numpy as np
 import scoring
 import copy
 import pickle
+import sys
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
-goal_score = 2000
+goal_score = 1000
 resolution_store_every = 50
 diff_threshold = 0.0002
 parallel = False
@@ -115,7 +116,7 @@ def DoOneDie(my_score, your_score, turn_points, num_dice, local_W):
     # We have the option to hold
     hold_prob = 1 - GetProb((your_score, my_score + turn_points), 0, 6, local_W)
     this_W = max(hold_prob, this_W)
-    if this_W == hold_prob:
+    if this_W == hold_prob and k > 20:
       pass
       # print("Want to hold at", my_score, your_score, turn_points, num_dice)
   return this_W
@@ -136,9 +137,10 @@ def CanSkip(turn_points, num_dice):
   if num_dice == 6 and turn_points < 300 and turn_points > 0:
     return True
 
-def main():
+def RunValueIteration():
   global diff
   global W
+  global k
   W = np.zeros(W_shape)
   diff = 1
   k = 0
@@ -183,12 +185,24 @@ def main():
 
   with open(f'W_goal{goal_score}_res{resolution_store_every}_parallel.pkl', 'wb') as f:
     pickle.dump(W, f, 4)
-#%%
-#  golden_file_name = f'W_goal{goal_score}_res{resolution_store_every}.pkl'
-#  with open(golden_file_name, 'rb') as f:
-#    W = pickle.load(f)
 
-#%%
+  RunTests()
+
+  golden_file_name = f'W_goal{goal_score}_res{resolution_store_every}.pkl'
+  with open(golden_file_name, 'rb') as f:
+    W2 = pickle.load(f)
+    biggest_diff = np.max(np.abs((W-W2)))
+    print(f"biggest difference between what I just ran and {golden_file_name}:", biggest_diff)
+    assert biggest_diff < 2 * diff_threshold
+  shm.close()
+  shm.unlink()
+
+def RunTests():
+  golden_file_name = f'W_goal{goal_score}_res{resolution_store_every}.pkl'
+  with open(golden_file_name, 'rb') as f:
+    W = pickle.load(f)
+  print("Running tests against", golden_file_name)
+
   p_to_test = GetProb((100, 0), 400, 1, W)
   hold = 1 - GetProb((0, 500), 0, 6, W)
   roll_1 = GetProb((100, 0), 500, 6, W)
@@ -224,15 +238,18 @@ def main():
     print(p_to_test, "p_to_test from matrix")
     print(manual, "manual")
     print(hold, "hold\n")
-#%%    
-  golden_file_name = f'W_goal{goal_score}_res{resolution_store_every}.pkl'
-  with open(golden_file_name, 'rb') as f:
-    W2 = pickle.load(f)
-    biggest_diff = np.max(np.abs((W-W2)))
-    print(f"biggest difference between what I just ran and {golden_file_name}:", biggest_diff)
-    assert biggest_diff < 2 * diff_threshold
-  shm.close()
-  shm.unlink()
-#%%    
+    assert abs(p_to_test - max(hold, manual)) < diff_threshold
+
+  p_to_test = GetProb((0, 0), 50, 5, W)
+  hold = 1 - GetProb((0, 50), 0, 6, W)
+  print(p_to_test, "p_to_test from matrix")
+  print(hold, "hold\n")
+  assert p_to_test > hold
+
 if __name__ == "__main__":
-  main()
+  test_only = False
+  if len(sys.argv) > 1 and sys.argv[1] == "test":
+    print("running tests only")
+    RunTests()
+  else:
+    RunValueIteration()
