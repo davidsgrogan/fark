@@ -8,7 +8,7 @@ import sys
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
-goal_score = 3000
+goal_score = 2000
 resolution_store_every = 50
 diff_threshold = 0.0002
 parallel = False
@@ -148,7 +148,7 @@ def RunValueIteration():
   shm = shared_memory.SharedMemory(create=True, size=W.nbytes)
   W = np.ndarray(W_shape, dtype=W.dtype, buffer=shm.buf)
   if parallel:
-    pool = Pool(25)
+    pool = Pool()
     print("starting %d processes" % pool._processes)
   while diff > diff_threshold:
     if k == 2:

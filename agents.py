@@ -57,6 +57,10 @@ class HeuristicPlayer:
       return -1
     return max(scoring_options.keys())
 
+class TwoPlayerForwardSearch:
+  def __init__(self, goal_score):
+    self.goal_score = goal_score
+
 class TwoPlayerValueIterated:
   def __init__(self, goal_score):
     self.goal_score = goal_score

@@ -14,8 +14,8 @@ seed = 124
 random.seed(seed)
 np.random.seed(seed)
 
-goal_score = 600
-NUM_GAMES = 2000
+goal_score = 4000
+NUM_GAMES = 600
 players = [agents.TurnLimitPlayer(400),
            agents.TwoPlayerValueIterated(goal_score)]
 
