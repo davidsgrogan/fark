@@ -6,19 +6,18 @@ import sys
 import copy
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 import scoring
 import agents
 
-seed = 1234
+seed = 123
 random.seed(seed)
 np.random.seed(seed)
 
-goal_score = 10000
+goal_score = 2000
 
 players = [agents.TurnLimitPlayer(400),
-           agents.HeuristicPlayer()]
+           agents.TwoPlayerValueIterated(goal_score)]
 num_players = len(players)
 winners = [0] * num_players
 NUM_GAMES = 1000
@@ -31,11 +30,12 @@ for x in range(NUM_GAMES):
   else:
     turn = 0
   scores = [0] * num_players
+  print("\nNEW GAME")
   while max(scores) < goal_score:
     turn = (turn + 1) % num_players
     dice_left = 6
     turn_points = 0
-    print(f"\nplayer {turn} starts rolling, scores are ", scores)
+    print(f"\nplayer {turn} starts rolling, scores are", scores)
     while True:
       roll_result = np.random.randint(1, 7, dice_left)
       print("roll", sorted(roll_result))

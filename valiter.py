@@ -7,10 +7,10 @@ import pickle
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
-goal_score = 1000
+goal_score = 2000
 resolution_store_every = 50
 diff_threshold = 0.0002
-parallel = True
+parallel = False
 
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
@@ -36,13 +36,18 @@ def GetProb(scores, turn_points, dice_remaining, local_W):
     return 1
   if scores[1] >= goal_score:
     return 0
-  return local_W[r2i(scores[0]), r2i(scores[1]), r2i(turn_points), dice_remaining - 1]
+  return local_W[r2i(scores[0]),
+                 r2i(scores[1]),
+                 r2i(turn_points),
+                 dice_remaining - 1]
 
 def SetProb(scores, turn_points, dice_remaining, this_W, local_W):
   assert dice_remaining > 0 and dice_remaining < 7
   # print("SetProb got", scores, turn_points, dice_remaining, this_W)
-  local_W[r2i(scores[0]), r2i(scores[1]), r2i(turn_points), dice_remaining - 1] = this_W
-
+  local_W[r2i(scores[0]),
+          r2i(scores[1]),
+          r2i(turn_points),
+          dice_remaining - 1] = this_W
 
 # Speedups, in order:
 # Multiprocess
@@ -122,9 +127,13 @@ def CanSkip(turn_points, num_dice):
     return True
   if num_dice == 3 and turn_points < 150:
     return True
-  if turn_points == 0 and num_dice != 6:
+  if num_dice == 4 and turn_points < 100:
+    # Can also skip 250, 300, 350
     return True
-  if turn_points == 50 and num_dice != 5:
+  if num_dice == 5 and turn_points == 0 or (turn_points < 350 and
+                                            turn_points > 100):
+    return True
+  if num_dice == 6 and turn_points < 300 and turn_points > 0:
     return True
 
 def main():
@@ -158,7 +167,8 @@ def main():
           assert len(lists_of_probs) == processes
           # print ("Just got back a list length %d where each is a turn_point" % processes)
           for index, turn_points in enumerate(turn_points_range):
-            W[r2i(my_score), r2i(your_score), r2i(turn_points), :] = lists_of_probs[index]
+            W[r2i(my_score), r2i(your_score), r2i(turn_points),
+              :] = lists_of_probs[index]
         else:
           for turn_points in range(0, goal_score - my_score, resolution_store_every):
             for num_dice in range(1, 7):
@@ -174,15 +184,20 @@ def main():
   with open(f'W_goal{goal_score}_res{resolution_store_every}_parallel.pkl', 'wb') as f:
     pickle.dump(W, f, 4)
 #%%
+#  golden_file_name = f'W_goal{goal_score}_res{resolution_store_every}.pkl'
+#  with open(golden_file_name, 'rb') as f:
+#    W = pickle.load(f)
+
+#%%
   p_to_test = GetProb((100, 0), 400, 1, W)
   hold = 1 - GetProb((0, 500), 0, 6, W)
   roll_1 = GetProb((100, 0), 500, 6, W)
   roll_5 = GetProb((100, 0), 450, 6, W)
   womp = 1 - GetProb((0, 100), 0, 6, W)
-  print(p_to_test, "p_to_test from matrix")
   manual = (2/3) * womp + (1/6) * roll_1 + (1/6) * roll_5
+  print(p_to_test, "p_to_test from matrix")
   print(manual, "manual")
-  print(hold, "hold")
+  print(hold, "hold\n")
   assert abs(p_to_test - max(hold, manual)) < diff_threshold
   
   p_to_test = GetProb((100, 0), 400, 2, W)
@@ -194,12 +209,22 @@ def main():
   roll_1 = GetProb((100, 0), 500, 1, W)
   womp = 1 - GetProb((0, 100), 0, 6, W)
   manual = (8/36)*roll_1 + (8/36)*roll_5 + (1/36)*roll_55 + (1/36)*roll_11 + (2/36)*roll_15 + (16/36)*womp
-  print("")
   print(p_to_test, "p_to_test from matrix")
   print(manual, "manual")
   print(hold, "hold\n")
-  assert abs(p_to_test - max(hold, manual)) < diff_threshold  
-  
+  assert abs(p_to_test - max(hold, manual)) < diff_threshold
+
+  if goal_score >= 1200:
+    p_to_test = GetProb((0, 0), 1050, 1, W)
+    hold = 1 - GetProb((0, 1050), 0, 6, W)
+    roll_1 = GetProb((100, 0), 500, 6, W)
+    roll_5 = GetProb((100, 0), 450, 6, W)
+    womp = 1 - GetProb((0, 100), 0, 6, W)
+    manual = (2/3) * womp + (1/6) * roll_1 + (1/6) * roll_5
+    print(p_to_test, "p_to_test from matrix")
+    print(manual, "manual")
+    print(hold, "hold\n")
+#%%    
   golden_file_name = f'W_goal{goal_score}_res{resolution_store_every}.pkl'
   with open(golden_file_name, 'rb') as f:
     W2 = pickle.load(f)
