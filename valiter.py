@@ -5,21 +5,22 @@ import scoring
 import copy
 import pickle
 import sys
+import math
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
 goal_score = 2000
-resolution_store_every = 50
+resolution_store_every = 100
 diff_threshold = 0.0002
 parallel = False
-parallel = True
+#parallel = True
 
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
 W_shape = (num_score_entries, num_score_entries, num_score_entries, 6)
 
 def r2i(raw):
-  index = int(raw / resolution_store_every)
+  index = math.floor(raw / resolution_store_every)
 #  index, remainder = divmod(raw, resolution_store_every)
 #  assert remainder == 0, (raw, resolution_store_every)
   return index
@@ -212,11 +213,12 @@ def RunTests(test_only=False):
 
   p_to_test = GetProb((0, 50), 0, 6, W)
   assert p_to_test > 0.5, f"Other guy has a 50 point lead when you start, prob is {p_to_test}"
-  assert p_to_test < GetProb((0, 0), 0, 6, W)
+  if resolution_store_every == 50:
+    assert p_to_test < GetProb((0, 0), 0, 6, W)
   print(f"Other guy has a 50 point lead when you start, prob is {p_to_test}\n")
 
-  p_to_test = GetProb((0, 0), 50, 5, W)
-  hold = 1 - GetProb((0, 50), 0, 6, W)
+  p_to_test = GetProb((0, 0), resolution_store_every, 5, W)
+  hold = 1 - GetProb((0, resolution_store_every), 0, 6, W)
   print(p_to_test, "p_to_test from matrix")
   print(hold, "hold\n")
   assert p_to_test > hold
