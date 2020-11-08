@@ -56,11 +56,26 @@ def make_X2(multi_dimensional):
   ind = [row.flatten() for row in ind]
   return ind
 
-def make_y2(multi_dimensional):
-  return multi_dimensional.flatten()
+def make_X3(multi_dimensional):
+  ind = np.indices(multi_dimensional.shape, sparse=True)
+  ind = [row.flatten() * 50 for row in ind]
+  return ind
 
 assert scipy.interpolate.griddata(make_X(b), make_y(
   b), np.array([0, 0])) == 0
 
 assert (scipy.interpolate.RegularGridInterpolator(make_X2(b), b)([[0, 0], [2.5, 0.5]]
                                                                  ) == [0, 31.5]).all()
+
+#%%
+def f(a):
+  a += 50
+b = 100
+f(b)
+print(b)
+
+# def f2(tupl):
+#   tupl[0] += 50
+# b = (0, 0)
+# f2(b)
+# print(b)

@@ -9,11 +9,11 @@ import math
 from multiprocessing import Pool
 from multiprocessing import shared_memory
 
-goal_score = 2000
+goal_score = 4000
 resolution_store_every = 100
 diff_threshold = 0.0002
-parallel = False
-#parallel = True
+#parallel = False
+parallel = True
 
 num_score_entries, remainder = divmod(goal_score, resolution_store_every)
 assert remainder == 0, (goal_score, resolution_store_every)
@@ -124,20 +124,29 @@ def DoOneDie(my_score, your_score, turn_points, num_dice, local_W):
   return this_W
 
 def CanSkip(turn_points, num_dice):
-  if num_dice == 1 and turn_points < 250:
-    return True
-  if num_dice == 2 and turn_points < 200:
-    return True
-  if num_dice == 3 and turn_points < 150:
-    return True
-  if num_dice == 4 and turn_points < 100:
-    # Can also skip 250, 300, 350
-    return True
-  if num_dice == 5 and (turn_points == 0 or (turn_points < 350 and
-                                             turn_points > 100)):
-    return True
-  if num_dice == 6 and turn_points < 300 and turn_points > 0:
-    return True
+  if resolution_store_every == 50:
+    if num_dice == 1 and turn_points < 250:
+      return True
+    if num_dice == 2 and turn_points < 200:
+      return True
+    if num_dice == 3 and turn_points < 150:
+      return True
+    if num_dice == 4 and turn_points < 100:
+      # Can also skip 250, 300, 350
+      return True
+    if num_dice == 5 and (turn_points == 0 or (turn_points < 350 and
+                                               turn_points > 100)):
+      return True
+    if num_dice == 6 and turn_points < 300 and turn_points > 0:
+      return True
+  if resolution_store_every == 100:
+    if num_dice == 1 and turn_points < 200:
+      return True
+    if num_dice == 2 and turn_points < 150:
+      return True
+    if num_dice == 6 and turn_points < 300 and turn_points > 50:
+      return True
+  return False
 
 def RunValueIteration():
   global diff
@@ -211,14 +220,21 @@ def RunTests(test_only=False):
   assert p_to_test > 0.5, f"Your prob when you go first is {p_to_test}"
   print(f"Your prob when you go first is {p_to_test}")
 
+  p_to_test = GetProb((0, 0), 50, 5, W)
+  assert p_to_test > 0.45, p_to_test
+  if resolution_store_every == 100:
+    assert p_to_test == GetProb((0, 0), 0, 5, W)
+  print("First roll of game is a 5, probability of winning =", p_to_test)
+
   p_to_test = GetProb((0, 50), 0, 6, W)
   assert p_to_test > 0.5, f"Other guy has a 50 point lead when you start, prob is {p_to_test}"
   if resolution_store_every == 50:
     assert p_to_test < GetProb((0, 0), 0, 6, W)
-  print(f"Other guy has a 50 point lead when you start, prob is {p_to_test}\n")
+  print(f"Other guy has a 50 point lead when you start, prob is {p_to_test}")
 
   p_to_test = GetProb((0, 0), resolution_store_every, 5, W)
   hold = 1 - GetProb((0, resolution_store_every), 0, 6, W)
+  print("")
   print(p_to_test, "p_to_test from matrix")
   print(hold, "hold\n")
   assert p_to_test > hold

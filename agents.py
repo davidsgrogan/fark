@@ -11,6 +11,8 @@
     # num_dice_to_score = players[turn].GetAction(state)
 
 import pickle
+import scipy.interpolate
+import numpy as np
 
 class TurnLimitPlayer:
   def __init__(self, turn_limit):
@@ -60,11 +62,15 @@ class HeuristicPlayer:
 class TwoPlayerLinearInteropolation:
   def __init__(self, goal_score):
     self.goal_score = goal_score
-    self.resolution_store_every = 1000
+    self.resolution_store_every = 100
 
     W_file_name = f'W_goal{goal_score}_res{self.resolution_store_every}.pkl'
     with open(W_file_name, 'rb') as f:
       self.W = pickle.load(f)
+
+    self.grid_points = self.make_points(self.W)
+    self.max_interpolable_score = self.goal_score - self.resolution_store_every
+    self.interpolator = scipy.interpolate.RegularGridInterpolator(self.grid_points, self.W)
 
   @staticmethod
   def h(n):
@@ -72,6 +78,12 @@ class TwoPlayerLinearInteropolation:
       return 6
     return n
  
+  def make_points(self, multi_dimensional):
+    ind = np.indices(multi_dimensional.shape, sparse=True)
+    ind = [row.flatten() * self.resolution_store_every for row in ind[0:3]]
+    ind.append(np.array(range(1, 7)))
+    return ind
+
   def GetProb(self, scores, turn_points, dice_remaining):
     #print("GetProb called with", locals())
     assert dice_remaining > 0 and dice_remaining < 7
@@ -79,15 +91,11 @@ class TwoPlayerLinearInteropolation:
       return 1
     if scores[1] >= self.goal_score:
       return 0
-    bottom_left = np.array([*scores, turn_points])
-    bottom_left = math.floor(bottom_left / self.resolution_store_every)
-    top_right = np.array([*scores, turn_points])
-    top_right = math.ceil(top_right / self.resolution_store_every)
-
-    enclosing_cube = self.W[scores[0, , self.r2i(scores[1]), self.r2i(turn_points),
-                  dice_remaining - 1]
+    nn_scores = [min(x, self.max_interpolable_score) for x in scores]
+    turn_points = min(turn_points, self.max_interpolable_score)
+    to_ret = self.interpolator([*nn_scores, turn_points, dice_remaining])
     #print("  returning", to_ret)
-    return to_ret
+    return float(to_ret)
 
   def GetAction(self, state):
     assert len(state["scores"]) == 2, state["scores"]
@@ -188,6 +196,33 @@ class TwoPlayerValueIterated:
     return best_action
 
 if __name__ == "__main__":
+  interp_player = TwoPlayerLinearInteropolation(2000)
+  assert interp_player.max_interpolable_score == 1900, interp_player.max_interpolable_score
+
+  # print(interp_player.grid_points)
+  W = interp_player.W
+  string = "Starting with a score of 50 has to be better than starting with 0 %f < %f" % (interp_player.GetProb((0, 0), 0, 6), interp_player.GetProb((50, 0), 0, 6))
+  assert interp_player.GetProb((0, 0), 0, 6) < interp_player.GetProb((50, 0), 0, 6), string
+  print(string)
+  assert interp_player.GetProb((0, 0), 0, 6) == W[0, 0, 0, 5]
+  string = "First roll of the game is a 50, chances of winning should be > 50: %f" % interp_player.GetProb((0, 0), 50, 5)
+  assert interp_player.GetProb((0, 0), 50, 5) > 0.5, string
+  print(string)
+  manual = (W[0, 0, 0, 4] + W[0, 0, 1, 4]) / 2
+  assert abs(interp_player.GetProb((0, 0), 50, 5) - manual) < 0.0001, "%f == %f" % (interp_player.GetProb((0, 0), 50, 5), manual)
+
+  p_to_test = interp_player.GetProb((250, 350), 450, 3)
+  manual =  W[2, 3, 4, 2]
+  manual += W[2, 3, 5, 2]
+  manual += W[2, 4, 4, 2]
+  manual += W[2, 4, 5, 2]
+  manual += W[3, 3, 4, 2]
+  manual += W[3, 3, 5, 2]
+  manual += W[3, 4, 4, 2]
+  manual += W[3, 4, 5, 2]
+  manual /= 8
+  assert abs(manual - p_to_test) < 0.0001
+
   value_player = TwoPlayerValueIterated(2000)
   state = {
       "scores": [0, 0],
@@ -198,7 +233,6 @@ if __name__ == "__main__":
   action = value_player.GetAction(state)
   assert action == -1, action
 
-  value_player = TwoPlayerValueIterated(2000)
   state = {
       "scores": [0, 0],
       "turn_points": 50,
@@ -207,3 +241,6 @@ if __name__ == "__main__":
   }
   action = value_player.GetAction(state)
   assert action == 1, action
+
+  print(interp_player.GetProb((500, 500), 200, 3))
+  print(value_player.GetProb((500, 500), 200, 3))

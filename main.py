@@ -14,11 +14,11 @@ seed = 124
 random.seed(seed)
 np.random.seed(seed)
 
-goal_score = 4000
+goal_score = 2000
 NUM_GAMES = 600
-players = [agents.TurnLimitPlayer(400),
-           agents.TwoPlayerValueIterated(goal_score)]
-
+players = [#agents.TurnLimitPlayer(400),
+           agents.TwoPlayerValueIterated(goal_score),
+           agents.TwoPlayerLinearInteropolation(goal_score)]
 num_players = len(players)
 winners = [0] * num_players
 
