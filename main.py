@@ -4,20 +4,21 @@
 import random
 import sys
 import copy
+import math
 
 import numpy as np
 
 import scoring
 import agents
 
-seed = 124
+seed = 123
 random.seed(seed)
 np.random.seed(seed)
 
 goal_score = 2000
-NUM_GAMES = 600
+NUM_GAMES = 5000
 players = [#agents.TurnLimitPlayer(400),
-           agents.TwoPlayerValueIterated(goal_score),
+           agents.TwoPlayerValueIterated(goal_score),#]
            agents.TwoPlayerLinearInteropolation(goal_score)]
 num_players = len(players)
 winners = [0] * num_players
@@ -71,3 +72,6 @@ for x in range(NUM_GAMES):
   winners[turn] += 1
 
 print ("winner counts are", winners)
+p = winners[1] / NUM_GAMES
+stdev = math.sqrt(p * (1 - p) / NUM_GAMES)
+print(f"p = {p}, stdev = {stdev}")
